@@ -251,6 +251,7 @@ function! s:fzf(name, opts, extra)
 endfunction
 
 let s:default_action = {
+  \ 'ctrl-d': 'bdelete',
   \ 'ctrl-t': 'tab split',
   \ 'ctrl-x': 'split',
   \ 'ctrl-v': 'vsplit' }
@@ -600,6 +601,7 @@ endfunction
 " Buffers
 " ------------------------------------------------------------------
 function! s:find_open_window(b)
+  :echom printf("%s: %s", "keys: ", keys)
   let [tcur, tcnt] = [tabpagenr() - 1, tabpagenr('$')]
   for toff in range(0, tabpagenr('$') - 1)
     let t = (tcur + toff) % tcnt + 1
@@ -623,19 +625,23 @@ function! s:bufopen(lines)
   if len(a:lines) < 2
     return
   endif
-  let b = matchstr(a:lines[1], '\[\zs[0-9]*\ze\]')
-  if empty(a:lines[0]) && get(g:, 'fzf_buffers_jump')
+  let cmd = s:action_for(a:lines[0])
+  if !empty(cmd)
+      for line in a:lines[1:]
+        let b = matchstr(line, '\[\zs[0-9]*\ze\]')
+        execute 'silent' cmd b
+      endfor
+  elseif empty(a:lines[0]) && get(g:, 'fzf_buffers_jump')
+    let b = matchstr(a:lines[1], '\[\zs[0-9]*\ze\]')
     let [t, w] = s:find_open_window(b)
     if t
       call s:jump(t, w)
       return
     endif
+  else
+    let b = matchstr(a:lines[1], '\[\zs[0-9]*\ze\]')
+    execute 'buffer' b
   endif
-  let cmd = s:action_for(a:lines[0])
-  if !empty(cmd)
-    execute 'silent' cmd
-  endif
-  execute 'buffer' b
 endfunction
 
 function! fzf#vim#_format_buffer(b)
@@ -667,7 +673,7 @@ function! fzf#vim#buffers(...)
   return s:fzf('buffers', {
   \ 'source':  map(fzf#vim#_buflisted_sorted(), 'fzf#vim#_format_buffer(v:val)'),
   \ 'sink*':   s:function('s:bufopen'),
-  \ 'options': ['+m', '-x', '--tiebreak=index', '--header-lines=1', '--ansi', '-d', '\t', '--with-nth', '3..', '-n', '2,1..2', '--prompt', 'Buf> ', '--query', query, '--preview-window', '+{2}-5']
+  \ 'options': ['+m', '-x', '--tiebreak=index', '--multi', '--expect=ctrl-d', '--header-lines=1', '--ansi', '-d', '\t', '--with-nth', '3..', '-n', '2,1..2', '--prompt', 'Buf> ', '--query', query, '--preview-window', '+{2}-5']
   \}, args)
 endfunction
 
